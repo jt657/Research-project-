@@ -1,0 +1,66 @@
+#### abundance stats re do 
+abundance<-read.table("abundance.txt", header=TRUE)
+abundance$pvc.conc<-as.factor(as.numeric(abundance$pvc.conc))
+class(abundance$pvc.conc)
+
+mortality$pvc.conc
+
+#look at difference in abundance between the two food groups ? 
+
+boxplot((abundance~food, data=abundance) col= ) ###doesnt look particularly different 
+hist(abundance$abundance)
+shapiro.test(abundance$abundance) ###not signifi 
+
+wilcox.test(abundance~food, data = abundance) ####no significant difference p=0.433
+
+###will not seperate food groups but will check in linear model 
+
+##is there a correlation 
+cor.test(abundance$pvc.conc, abundance$abundance) ### cannot do this is pvc is considered a factor 
+
+a1<-lm(abundance~pvc.conc*food, data=abundance)
+summary(a1)
+anova(a1)
+a2<-lm(abundance~pvc.conc+food, data=abundance)
+anova(a2)  ####pvc vv significant (p<0.001), food not significant p=0.296
+anova(a1,a2) ####food not having any interactive or additive impacts on abundance, remove from model 
+
+a3<-lm(abundance~pvc.conc, data=abundance)
+anova(a3)
+summary(a3) ####pvc.conc having significant impact on copepod abundance p<0.001
+
+TukeyHSD(aov(abundance~pvc.conc, data=abundance)) ####significant difference between abundance at 0-1 (p<0.05), significant difference in abundance between 0.0125-0.5 (p<0.05), and significant difference in abundace between 0.0125-1 (p<0.001).
+
+#####conclusions 
+####food had no significant impact on copepod abundance (p=0.433) - no interaction or additive impacts 
+####impact of pvc.concentration on copepod abundance was very significant p<0.001
+##There was a significant difference between the control and highest pvc concentration (p<0.05), significant difference in abundance between 0.0125-0.5 (p<0.05), and significant difference in abundace between 0.0125-1 (p<0.001).
+
+
+###########
+###plotting abundance data
+##########
+
+plot(abundance~pvc.conc, data=abundance)
+
+x<-abundance2$pvc.conc
+y<-abundance2$abundance
+plot(x, y, xlab="PVC concentration ", ylab="Copepod abundance ", pch=19)
+abline(lm(y ~ x, data =abundance2), col = "blue")
+
+abundance2<-read.table("abundance.txt", header=TRUE) ####had to re read in abundance data without categorising it and then it works 
+
+#### good plot use in work ####using both food and non food data 
+ abundancelmplot<-ggplot(abundance2, aes(x = pvc.conc, y=abundance),) + xlab("PVC concentration (mg/ml)")+ ylab("Copepod abundance (au/10ml)") +
+   geom_point(col="DARKGREEN", stat="identity") + geom_smooth(method=lm , color="BLACK", fill="#69b3a2", se=TRUE) +ggtitle("6b)") +theme(panel.background = element_rect(fill='transparent'),panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +theme(panel.border=element_rect(linetype=1,fill=NA))  ####### abundance linear model regrssion plot lm trend line 
+
+cor.test(abundance2$abundance,abundance2$pvc.conc) ####sigif negative correlation between increasing pvc conc and copepod abundance 
+
+boxplot(abundance$abundance~abundance$food, xlab="Food", ylab="Copepod abundance (au/10ml)", col=c("grey","darkseagreen")) ####basic boxplot for abundance and food 
+
+###ggboxplot 
+abundanceboxplot<-ggplot(abundance, aes(x =food, y=abundance, fill=food)) + stat_boxplot(geom = "errorbar", width = 0.15) + geom_boxplot() +labs(x="Food", y="Copepod abundance (au/10ml)")  +ggtitle("6a)") + scale_fill_manual(values=c("grey","darkseagreen")) +theme(panel.background = element_rect(fill='transparent'),panel.grid.major = element_blank(), panel.grid.minor = element_blank())+ theme(legend.position = "none")+theme(panel.border=element_rect(linetype=1,fill=NA))
+
+abundanceboxplot ###boxplot for copeopod abundace at diff food groups 
+
+grid.arrange(abundanceboxplot,abundancelmplot, ncol=2) ####put all plot next to each other for gg plot 
