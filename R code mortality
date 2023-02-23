@@ -1,0 +1,212 @@
+#####survival/mortality stats 
+
+####bocplots to visualise data 
+par(mfrow=c(1,1))
+boxplot(mortality~food, data=mortality) ###expected ##lower avergae mortality when food given but lots of overlap
+boxplot(mortality~time.hrs, data=mortality) ### expected ###gradually increasing mortality over time ##potentially greater exposure to pvc 
+boxplot(mortality~pvc.conc, data=mortality) ###no huge differences 
+
+#####quick t test on difference between mortality between the two food groups 
+hist(mortality$mortality) ##non normal 
+shapiro.test(mortality$mortality) ###non normal use wilcox not students 
+
+wilcox.test(mortality~food, data=mortality) ####p=0.19 ####no significant diff 
+
+###anovas 
+####looking at how mortality over time is impacted by PVC conc 
+
+#### need to determine if food has an impact 
+##mortality~time.hrs+pvc.conc+food+time.hrs:pvc.conc+time.hrs:food+pvc.conc:food+time.hrs:pvc.conc
+mortality<-read.table("mortality.txt", header=TRUE)
+mortality$pvc.conc<-as.factor(as.numeric(mortality$pvc.conc)) ### making pvc catagorical 
+class(mortality$pvc.conc)
+
+mortality$pvc.conc ###yay PVC now catagory 
+
+
+#######
+mortal1<-lm(mortality~time.hrs*pvc.conc*food, data=mortality)
+summary(morta1) 
+par(mfrow=c(2,2))
+
+plot(mortal1) ####looks allright - I am going to use it 
+anova(mortal1)###time (p<0.001) and pvc(p<0.05) had an impact, food did not itself (p=0.06) but had significant interaction with other variables , time:pvc interaction (exposure) (p<0.05),time:food (p<0.05) and pvc conc:food (p<0.01) interactions were signif 
+
+mortal2<-lm(mortality~time.hrs*pvc.conc+food, data=mortality)
+anova(mortal2) ###when remove food 
+anova(mortal1)
+anova(mortal1,mortal2) ####this model with food just as an additive effect is better p<0.001
+
+
+mortal1<-lm(mortality~time.hrs+pvc.conc+food+time.hrs:pvc.conc+time.hrs:food+pvc.conc:food+time.hrs:pvc.conc:food, data=mortality)
+anova(mortal1)
+
+mortal2<-lm(mortality~time.hrs+pvc.conc+food+time.hrs:pvc.conc+time.hrs:food+pvc.conc:food, data=mortality)
+anova(mortal1,mortal2)#####three way interaction non significant 
+anova(mortal2)
+
+mortal3<-lm(mortality~time.hrs+pvc.conc+food+time.hrs:pvc.conc+time.hrs:food, data=mortality)
+anova(mortal2, mortal3)####impact of pvc:food interaction is significant p<0.001 ####presence of food does impact pvc concentration effects mortality 
+anova(mortal3)
+
+AIC(mortal2,mortal3) ###removing pvc:food you explain less of the data ####this intercation explains things 
+
+mortal4<-lm(mortality~time.hrs+pvc.conc+food+time.hrs:pvc.conc, data=mortality)
+anova(mortal4,mortal3) ####time:food had no impact 
+anova(mortal4)
+
+AIC(mortal4,mortal3)####model without time:food is better 
+
+mortal5<-lm(mortality~time.hrs+pvc.conc+food, data=mortality)
+anova(mortal5,mortal4) #### time:pvc interaction is signif p<0.05 ####again acts as proxy for exposure 
+
+AIC(mortal5,mortal4) ##confirms this 
+
+mortal6<-lm(mortality~time.hrs+pvc.conc, data=mortality)
+anova(mortal6,mortal5) ####food itself not 
+anova(mortal6)
+
+AIC(mortal6,mortal5) ####confirms this 
+
+mortal7<-lm(mortality~time.hrs, data=mortality)
+anova(mortal7, mortal6) ####pvc does have impacts 
+anova(mortal7)
+
+mortal8<-lm(mortality~1, data=mortality)
+anova(mortal8,mortal7) ####time is significant 
+anova(mortal8)
+
+AIC(mortal8,mortal7) ###### confirms time is significant 
+
+
+TukeyHSD(aov(mortality~pvc.conc, data=mortality))###none of these differences in mortality between concentrations significant? pvc concentration alone doesnt have an impact on mortality however it does have an effect as an interaction. not able to determine if there is a threshold ect - yes did impact but not able to say if higher concs impacted more than lower concs 
+TukeyHSD(aov(mortality~time.hrs*pvc.conc, data=mortality))#####came up with some warning messages ####did show some significance between 0.5-0.0125?  
+TukeyHSD(aov(mortality~time.hrs, data=mortality))
+
+TukeyHSD(aov(mortality~time.hrs*pvc.conc*food, data=mortality)) ####differences between 0-0.5 and 0.0125-0.5 were significant P<0.05
+
+##### conclusions  ###### 
+###pvc concentration does have an impact on mortality of copepods in terms when considered in terms of an interaction , 
+###it was the interaction between the time and pvc.conc which explained the most variation in the data set p<0.05 (can this interaction act as proxy for exposure), 
+####the impacts of food treatment on the results was deemed non significant (p=0.114)
+
+#############
+####### survival figures 
+#######
+
+###food in boxplot maybe 
+library(tidyverse)
+view(mortality)
+
+mortality3<-read.table("mortality3.txt", header=TRUE)
+
+mortalityfood<-read.csv("food.mortality.csv", header=TRUE)
+str(mortalityfood)
+head(mortalityfood)
+
+t.test(mortalityfood$mortality~mortalityfood$food) ##not signific ##
+
+library(dplyr)
+library(ggplot2)
+
+cleandata<- mortalityfood %>% group_by (food) %>% summarize (mean_mortality= mean(mortality), sd_mortality= sd(mortality), count= n(), se_mortality=(sd_mortality/(sqrt(count))))
+view(cleandata)
+foodplot<-ggplot(cleandata, aes(x=food, y=mean_mortality, fill= food)) + geom_bar(stat="identity", position= position_dodge()) + scale_fill_manual(values = c("grey", "darkseagreen") ) + geom_errorbar(aes(ymin=mean_mortality-se_mortality, ymax=mean_mortality+mean_mortality), width=.2) + labs(x="Food", y="Mortality (au/10ml)")+ theme_classic() +theme(legend.position="none") +ggtitle("2a)") +theme(panel.border=element_rect(linetype=1,fill=NA))
+
+foodplot
+
+par(mfrow=c(1,1))
+
+##mortality food box plot ####potentially better than bar 
+mortalityfoodboxplot<-ggplot(mortality, aes(x =food, y=mortality, fill=food)) + stat_boxplot(geom = "errorbar", width = 0.15) + geom_boxplot() +labs(x="Food", y="Copepod mortality (au/10ml)")  +ggtitle("a)") + scale_fill_manual(values=c("grey","darkseagreen")) +theme(panel.background = element_rect(fill='transparent'),panel.grid.major = element_blank(), panel.grid.minor = element_blank())+ theme(legend.position = "none")+theme(panel.border=element_rect(linetype=1,fill=NA))
+mortalityfoodboxplot
+
+boxplot(mortality$mortality~mortality$food, xlab="Food", ylab="Copepod mortality (au/10ml)", col=c("grey","darkseagreen"))
+
+
+
+###could potentially try boxplot in ggplot 
+mortalityboxplot<-ggplot(mortality, aes(x =pvc.conc, y=mortality, fill=pvc.conc)) + 
+  stat_boxplot(geom = "errorbar",
+               width = 0.15) + geom_boxplot() +labs(x="PVC concentration (mg/ml)", y="Mortality after PVC exposure (au/10ml)") +scale_fill_manual(values=c("grey","darkorange","orange2","darkorange3"))+ggtitle("2b)") +theme(panel.background = element_rect(fill='transparent'),panel.grid.major = element_blank(), panel.grid.minor = element_blank())+theme(panel.border=element_rect(linetype=1,fill=NA))+theme(legend.box.background=element_rect(),legend.box.margin=margin(5,5,5,5))+ guides(fill=guide_legend(title="PVC conc."))
+
+mortalityboxplot ###box plot of how mortality varied in different pvc conc 
+
+###how does this look as a bar chart 
+
+mortalitybar<-ggplot(cleandata, aes(x =pvc.conc, y=mortality, fill=pvc.conc)) +  geom_bar(stat="identity", position= position_dodge())  +scale_fill_manual(values=c("grey","darkorange","orange2","darkorange3"))+ geom_errorbar(aes(ymin=mean_mortality-se_mortality, ymax=mean_mortality+mean_mortality), width=.2)
+  +labs(x="PVC concentration (mg/ml)", y="Mortality after PVC exposure (au/10ml)") +ggtitle("b)") +theme(panel.background = element_rect(fill='transparent'),panel.grid.major = element_blank(), panel.grid.minor = element_blank())+theme(panel.border=element_rect(linetype=1,fill=NA))+theme(legend.box.background=element_rect(),legend.box.margin=margin(5,5,5,5))+ guides(fill=guide_legend(title="PVC conc."))
+mortalitybar ####not really working 
+
+grid.arrange(foodplot, mortalityboxplot, ncol=2)
+
+
+#####plot anova 
+
+interaction.plot(mortality$time.hrs,mortality$pvc.conc, mortality$mortality)
+interaction.plot(mortality2$time.hrs,mortality2$pvc.conc, mortality2$mortality)
+
+modm<-aov(mortality~time.hrs*pvc.conc*food, data= mortality)
+modm
+predm <- predict(modm)
+predlmm <- predict(modm, interval = "confidence")
+predlmm
+data3 <- cbind(mortality,predm)
+mortalitygraphdata<-cbind(data3, predlmm)
+
+
+#######worked !!!!!!!
+mplot<-ggplot(mortalitygraphdata, aes(time.hrs, mortality, color=pvc.conc)) + geom_line(aes(y=predm), size=1) +geom_ribbon( aes(ymin = lwr, ymax = upr, fill = pvc.conc, color = NULL), alpha = 0.1) +scale_y_continuous(limits = c()) + scale_x_continuous(breaks=c(24,48,72)) +ggtitle("3a)")+theme(plot.title = element_text(hjust = 0.5)) +labs(x="Time (hrs)", y="Copepod mortality (au/10ml)") + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +facet_wrap(~food)+theme(panel.border=element_rect(linetype=1,fill=NA))+theme(panel.background = element_rect(fill='transparent'))+theme(legend.box.background=element_rect(),legend.box.margin=margin(5,5,5,5))+scale_fill_manual(values=c("red","darkolivegreen3","darkturquoise", "purple"))+scale_color_manual(values=c("red","darkolivegreen3","darkturquoise", "purple"))
+mplot ######not great - potentially just compare 0-1 ? ###show that 0 and 0.5 remained stable throughout and only increasing mortality in 0.0125 and 1 - large overlap in data 
+
+######just looking at control and 0.5 - post hoc revealed this was only significant difference 
+####
+mortality4<-read.table("mortality4.txt", header=TRUE)
+
+
+mortality4$pvc.conc<-as.factor(as.numeric(mortality4$pvc.conc)) ### making pvc catagorical 
+class(mortality4$pvc.conc)
+
+mortality4$pvc.conc
+
+mod4<-aov(mortality~time.hrs*pvc.conc*food, data= mortality4)
+mod4
+pred4 <- predict(mod4)
+predlm4 <- predict(mod4, interval = "confidence")
+predlm4
+data4 <- cbind(mortality4,pred4)
+mortalitygraphdata2<-cbind(data4, predlm4)
+
+comparisonplot<-ggplot(mortalitygraphdata2, aes(time.hrs, mortality, color=pvc.conc)) + geom_line(aes(y=pred4), size=1) +geom_ribbon( aes(ymin = lwr, ymax = upr, fill = pvc.conc, color = NULL), alpha = 0.1) +scale_y_continuous(limits = c()) + scale_x_continuous(breaks=c(24,48,72)) +ggtitle("3b)")+theme(plot.title = element_text(hjust = 0.5)) +labs(x="Time (hrs)", y="Copepod mortality (au/10ml)") + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +facet_wrap(~food)+theme(legend.box.background=element_rect(),legend.box.margin=margin(5,5,5,5)) +theme(panel.background = element_rect(fill='transparent'))+theme(panel.border=element_rect(linetype=1,fill=NA))+scale_fill_manual(values=c("red","purple"))+scale_color_manual(values=c("red","purple"))
+comparisonplot #######not sure what do to here as the data shows that more copepods dying in the control than in the highest concentration 
+  
+  
+  
+####0-1 difference 
+
+mortality2<-read.table("mortality2.txt", head=TRUE)  
+mortality2
+mortality2$pvc.conc<-as.factor(as.numeric(mortality2$pvc.conc)) ### making pvc catagorical 
+class(mortality2$pvc.conc)
+
+mortality$pvc.conc
+
+modA<-aov(mortality~time.hrs*pvc.conc*food, data= mortality2)
+modA
+predA <- predict(modA)
+predlmA <- predict(modA, interval = "confidence")
+predlmA
+data4 <- cbind(mortality2,predA)
+controldata<-cbind(data4, predlmA)
+
+
+#######worked #####0-1
+
+controlplot<-ggplot(controldata, aes(time.hrs, mortality, color=pvc.conc)) + geom_line(aes(y=predA), size=1) +geom_ribbon( aes(ymin = lwr, ymax = upr, fill = pvc.conc, color = NULL), alpha = 0.1) +scale_y_continuous(limits = c()) + scale_x_continuous(breaks=c(24,48,72)) +ggtitle("3b)")+theme(plot.title = element_text(hjust = 0.5)) +labs(x="Time (hrs)", y="Copepod mortality (au/10ml)") + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+theme(panel.border=element_rect(linetype=1,fill=NA))+theme(legend.box.background=element_rect(),legend.box.margin=margin(5,5,5,5)) +theme(panel.background = element_rect(fill='transparent'))+facet_wrap(~food) +scale_fill_manual(values=c("red","purple"))+scale_color_manual(values=c("red","purple"))
+controlplot #####like #post hoc revealed differences not significant (p=0.984) ##highlights overall difference in trend - with increasing mortality in highest conc compared to control 
+
+grid.arrange(mplot, controlplot, ncol=1) #####yes need a little editing on the format 
+
+###interaction was only significant at 0.5-0.0125
+
+
