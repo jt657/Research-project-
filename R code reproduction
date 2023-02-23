@@ -1,0 +1,201 @@
+###re do of the stats for reproduction 
+### reproductivity stats 
+
+#######look at data first to get idea of how it looks 
+boxplot(egg.sac~time.hrs, data=reproduct) ###greater number of egg sac counted over length of study - expected 
+boxplot(egg.sac~pvc.conc, data=reproduct) ####overall number of egg sac lower at higher conc - not by much though --- suported by stats 
+boxplot(egg.sac~food, data=reproduct) ###slight increase in number of egg sac in food groups --- expected 
+
+
+#####quick t test on difference between number of pregnant females between the two food groups 
+hist(reproduct$egg.sac) ##hmmmmmm unsure  
+shapiro.test(reproduct$egg.sac) ###non normal use wilcox not students 
+
+wilcox.test(egg.sac~food, data=reproduct) ####p=0.383 ####no significant diff in number of egg sac between food and non food groups 
+
+###need to determine impacts of food on data for reproduction 
+reproduct<-read.table("Reproductivity.txt", header=TRUE)
+
+reproduct$pvc.conc<-as.factor(as.numeric(reproduct$pvc.conc)) ### making pvc categorical 
+class(reproduct$pvc.conc)
+reproduct$pvc.conc ###yay PVC now category ##
+summary(reproduct)
+
+###using lm --- decided lm seemed right 
+##############
+
+rep1<-lm(egg.sac~time.hrs+pvc.conc+food+time.hrs:pvc.conc+time.hrs:food+pvc.conc:food+time.hrs:pvc.conc:food, data=reproduct)
+anova(rep1)
+
+rep2<-lm(egg.sac~time.hrs+pvc.conc+food+time.hrs:pvc.conc+time.hrs:food+pvc.conc:food, data=reproduct)
+anova(rep2,rep1)###three way interact not good 
+anova(rep2)
+summary(rep2)
+
+AIC(rep2, rep1) ####model without three way interaction is good 
+
+rep3<-lm(egg.sac~time.hrs+pvc.conc+food+time.hrs:pvc.conc+time.hrs:food, data=reproduct)
+anova(rep3, rep2)#####pvc:food interaction non significant 
+anova(rep3)
+
+AIC(rep3,rep2) ####rep three better without interaction 
+
+rep4<-lm(egg.sac~time.hrs+pvc.conc+food+time.hrs:pvc.conc, data=reproduct)
+anova(rep4, rep3) #####time:food interaction non significant 
+anova(rep4)
+AIC(rep4, rep3) ###rep4 better without time:food interaction 
+
+rep5<-lm(egg.sac~time.hrs+pvc.conc+food, data=reproduct)
+anova(rep5,rep4) ###removal of time.hrs:pvc.conc, time:pvc conc is a significant interaction p<0.05
+anova(rep5)
+
+AIC(rep5,rep4) #####removal leads to information being lost 
+
+rep6<-lm(egg.sac~time.hrs+pvc.conc, data=reproduct)
+anova(rep6, rep5) ####food not significant p=0.159
+anova(rep6)###pvc has significant impact (p<0.05)
+
+AIC(rep6, rep5)
+
+rep7<-lm(egg.sac~time.hrs, data=reproduct)
+anova(rep7,rep6) #####pvc has a significant impact on number of egg sacs 
+anova(rep7)
+
+AIC(rep7,rep6) 
+
+rep8<-lm(egg.sac~1, data=reproduct)
+anova(rep8,rep7) ###time is significant p<0.05 
+
+AIC(rep8,rep7)
+
+TukeyHSD(aov(egg.sac~time.hrs*pvc.conc*food, data=reproduct)) ####significant difference in mortality between 0-0.5 p<0.05 and 0-1 p<0.05
+
+#####conclusions 
+######pvc did have overall significant impact on number of egg sacs counted in samples (p<0.05), 
+####however this was only a significant difference between the control and 0.5mg/ml (p<0.05), 
+###difference between control and 1mg was p=0.061, 
+###food did not have a significant impact on reproduction in this study (p=0.131) (wilcox rank deemed food to have no significant difference in number of egg sacs counted p=0.383), 
+#####therefore the food and no food treatment groups were combined to give larger data set. 
+####Interaction between time and pvc.conc was significant, time and pvc have an interactive effect, 
+###meaning length of exposure to varying pvc concentrations has significant impact on number of egg sacs recorded    
+###significant difference btween 0-0.5 (p=0.041) and for 0-1 (p<0.05)
+
+#########
+####figures 
+######
+
+library(dplyr)
+library(ggplot2)
+
+rf<-read.csv("reproduct2.csv", header=TRUE) ###just food and egg sac data ##not accoutning for time and pvc just to see overall 
+head(rf)
+
+reproductfoodgraph<- rf %>% group_by (food) %>% summarize (mean_egg.sac= mean(egg.sac), sd_egg.sac= sd(egg.sac), count= n(), se_egg.sac=(sd_egg.sac/(sqrt(count))))
+reproductfoodplot<-ggplot(reproductfoodgraph, aes(x=food, y=mean_egg.sac, fill= food)) + geom_bar(stat="identity", position= position_dodge()) + scale_fill_manual(values = c("grey", "darkseagreen") ) + geom_errorbar(aes(ymin=mean_egg.sac-se_egg.sac, ymax=mean_egg.sac+mean_egg.sac), width=.2) + labs(x="Food", y="Number of pregnant copepods (au/10ml)")+ theme_classic() +theme(legend.position="none") +ggtitle("a)")+theme(panel.border=element_rect(linetype=1,fill=NA))+theme(legend.box.background=element_rect(),legend.box.margin=margin(5,5,5,5))
+
+reproductfoodplot ##difference in number of eggs counted between food and starved groups 
+
+p1 <- ggplot(reproduct[reproduct$pvc.conc %in% "0",], aes(x=time.hrs, y=egg.sac)) + labs(x="Time (hrs)", y="Number of egg sacs (au/10ml)")  + geom_point( color="#69b3a2")  +geom_smooth(method=lm , color="black", fill="#69b3a2", se=TRUE) 
+p1
+
+p2<- ggplot(reproduct[reproduct$pvc.conc %in% "0.5",], aes(x=time.hrs, y=egg.sac)) + labs(x="Time (hrs)", y="Number of egg sacs (au/10ml)") + geom_point( color="#69b3a2")  +geom_smooth(method=lm , color="black", fill="#69b3a2", se=TRUE) 
+p2
+
+require(gridExtra)
+grid.arrange(p1, p2, ncol=2) ##### just normal scatterplots ###comparison of reproductive output between control and 0.5 - this is where the impacts were significantly different
+
+####
+##reproductive boxplot
+###
+reproductboxplot<-ggplot(reproduct, aes(x =pvc.conc, y=egg.sac, fill=pvc.conc)) + 
+  stat_boxplot(geom = "errorbar",
+               width = 0.15) + geom_boxplot() +labs(x="PVC concentration (mg/ml)", y="Number of pregnant copepods (au/10ml)") +scale_fill_manual(values=c("grey","darkorange","orange2","darkorange3"))+ggtitle("b)") +theme(panel.background = element_rect(fill='transparent'),panel.grid.major = element_blank(), panel.grid.minor = element_blank())+theme(panel.border=element_rect(linetype=1,fill=NA))+theme(legend.box.background=element_rect(),legend.box.margin=margin(5,5,5,5))+ guides(fill=guide_legend(title="PVC conc."))
+reproductboxplot
+
+grid.arrange(reproductfoodplot, reproductboxplot, ncol=2)
+#####
+#######want to plot ancova results 
+#######
+##0-0.5 
+reproductgraph<-read.table("reproductcomparison.txt", header=TRUE)
+
+interaction.plot(reproductgraph$time.hrs,reproductgraph$pvc.conc, reproductgraph$egg.sac) #####potential ###kinda low grade but shows differences 
+
+######plotting anova code 
+#####
+
+
+######create data 
+mod<-aov(egg.sac~time.hrs*pvc.conc, data= reproduct)
+mod
+
+pred <- predict(mod)
+predlm <- predict(mod, interval = "confidence")
+predlm
+data <- cbind(reproduct,pred)
+graphdata<-cbind(data, predlm)
+
+
+#######worked ###plot for intercation between time and pvc conc on reproductive impacts 
+p3<-ggplot(graphdata, aes(time.hrs, egg.sac, color=pvc.conc)) + geom_line(aes(y=pred), size=1) +geom_ribbon( aes(ymin = lwr, ymax = upr, fill = pvc.conc, color = NULL), alpha = 0.1) +scale_y_continuous(limits = c()) + scale_x_continuous(breaks=c(0,48,96,144)) +theme(plot.title = element_text(hjust = 0.5)) +labs(x="Time (hrs)", y="Females with eggs (au/10ml)") + theme(panel.background = element_rect(fill='transparent'),panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +ggtitle("5a)")+theme(panel.border=element_rect(linetype=1,fill=NA))+theme(legend.box.background=element_rect(),legend.box.margin=margin(5,5,5,5))+scale_fill_manual(values=c("red","darkolivegreen3","darkturquoise", "purple"))+scale_color_manual(values=c("red","darkolivegreen3","darkturquoise", "purple"))
+p3
+
+
+#####use just 0 an 0.5 ###only ones that were significantly different 
+
+reproductgraph<-read.table("reproductcomparison.txt", header=TRUE)
+
+reproductgraph$pvc.conc<-as.factor(as.numeric(reproductgraph$pvc.conc)) ### making pvc categorical 
+class(reproductgraph$pvc.conc)
+reproductgraph$pvc.conc 
+
+mod2<-aov(egg.sac~time.hrs*pvc.conc, data= reproductgraph)
+mod2
+pred2 <- predict(mod2)
+predlm2 <- predict(mod2, interval = "confidence")
+predlm2
+data2 <- cbind(reproductgraph,pred2)
+graphdata2<-cbind(data2, predlm2)
+
+p4<-ggplot(graphdata2, aes(time.hrs, egg.sac, color=pvc.conc)) + geom_line(aes(y=pred2), size=1) +geom_ribbon( aes(ymin = lwr, ymax = upr, fill = pvc.conc, color = NULL), alpha = 0.1) +scale_y_continuous(limits = c()) + scale_x_continuous(breaks=c(0,48,96,144)) +theme(plot.title = element_text(hjust = 0.5)) +labs(x="Time (hrs)", y="Females with eggs (au/10ml)") + theme(panel.background = element_rect(fill='transparent'),panel.grid.major = element_blank(), panel.grid.minor = element_blank())+ggtitle("5c)")+theme(panel.border=element_rect(linetype=1,fill=NA))+theme(legend.box.background=element_rect(),legend.box.margin=margin(5,5,5,5)) +scale_fill_manual(values=c("red","darkturquoise")) +scale_color_manual(values=c("red", "darkturquoise"))
+p4
+#####anova plot success 
+
+#####plot 0-1 need to make new data set 
+
+rch<-read.table("rch.txt", header=TRUE)
+rch$pvc.conc<-as.factor(as.numeric(rch$pvc.conc)) ### making pvc categorical 
+class(rch$pvc.conc)
+rch$pvc.conc 
+
+modrch<-aov(egg.sac~time.hrs*pvc.conc, data= rch)
+modrch
+predrch <- predict(modrch)
+predlmrch <- predict(modrch, interval = "confidence")
+predlmrch
+datarch <- cbind(rch,predrch)
+rchdata<-cbind(datarch, predlmrch)
+
+rchplot<-ggplot(rchdata, aes(time.hrs, egg.sac, color=pvc.conc)) + geom_line(aes(y=predrch), size=1) +geom_ribbon( aes(ymin = lwr, ymax = upr, fill = pvc.conc, color = NULL), alpha = 0.1) +scale_y_continuous(limits = c()) + scale_x_continuous(breaks=c(0,48,96,144)) +theme(plot.title = element_text(hjust = 0.5)) +labs(x="Time (hrs)", y="Females with eggs (au/10ml)") + theme(panel.background = element_rect(fill='transparent'),panel.grid.major = element_blank(), panel.grid.minor = element_blank())+ggtitle("5d)")+theme(panel.border=element_rect(linetype=1,fill=NA))+theme(legend.box.background=element_rect(),legend.box.margin=margin(5,5,5,5)) +scale_fill_manual(values=c("red","purple"))+scale_color_manual(values=c("red", "purple"))
+rchplot
+
+###plot0-0.0125 not signif but still lower than 
+
+rp<-read.table("reproduct4.txt", header=TRUE)
+rp$pvc.conc<-as.factor(as.numeric(rp$pvc.conc))
+class(rp$pvc.conc)
+rp$pvc.conc
+
+modrp<-aov(egg.sac~time.hrs*pvc.conc, data= rp)
+modrp
+predrp <- predict(modrp)
+predlmrp <- predict(modrp, interval = "confidence")
+predlmrp
+datarp <- cbind(rp,predrp)
+rpdata<-cbind(datarp, predlmrp)
+
+rpplot<-ggplot(rpdata, aes(time.hrs, egg.sac, color=pvc.conc)) + geom_line(aes(y=predrp), size=1) +geom_ribbon( aes(ymin = lwr, ymax = upr, fill = pvc.conc, color = NULL), alpha = 0.1) +scale_y_continuous(limits = c()) + scale_x_continuous(breaks=c(0,48,96,144)) +theme(plot.title = element_text(hjust = 0.5)) +labs(x="Time (hrs)", y="Females with eggs (au/10ml)") + theme(panel.background = element_rect(fill='transparent'),panel.grid.major = element_blank(), panel.grid.minor = element_blank())+ggtitle("5b)")+theme(panel.border=element_rect(linetype=1,fill=NA))+theme(legend.box.background=element_rect(),legend.box.margin=margin(5,5,5,5)) +scale_fill_manual(values=c("red","darkolivegreen3"))+scale_color_manual(values=c("red", "darkolivegreen3"))
+rpplot
+
+
+grid.arrange(p3,rpplot, p4, rchplot, ncol=2)
